@@ -6,13 +6,25 @@ class Smpp::Pdu::SubmitSm < Smpp::Pdu::Base
               :validity_period, :registered_delivery, :replace_if_present_flag, :data_coding, 
               :sm_default_msg_id, :sm_length, :udh, :short_message, :optional_parameters
 
-  
-  # Note: short_message (the SMS body) must be in iso-8859-1 format
   def initialize(source_addr, destination_addr, short_message, options={}, seq = nil)
-     
+
+    if short_message.non_ascii?
+        short_message = Iconv.conv("UCS-2be", "UTF-8", short_message)
+        options[:data_coding] = 8
+    else
+        # utf8 -> gsm
+        #short_message = Iconv.conv("ISO-8859-1", "UTF-8", short_message)
+        options[:data_coding] = 0
+    end
+
+    # utf8 -> gsm, 11 chars max
+    #source_addr = Iconv.conv("US-ASCII", "UTF-8", source_addr)
+    source_addr = source_addr.to_gsm7 #.slice(0..10)
+    source_addr = source_addr.slice(0..10)
+
     @msg_body = short_message
-    
-    @udh = options[:udh]      
+
+    @udh                     = options[:udh]
     @service_type            = options[:service_type]? options[:service_type] :''
     @source_addr_ton         = options[:source_addr_ton]?options[:source_addr_ton]:0 # network specific
     @source_addr_npi         = options[:source_addr_npi]?options[:source_addr_npi]:1 # unknown
@@ -27,14 +39,14 @@ class Smpp::Pdu::SubmitSm < Smpp::Pdu::Base
     @validity_period         = options[:validity_period]?options[:validity_period]:''
     @registered_delivery     = options[:registered_delivery]?options[:registered_delivery]:1 # we want delivery notifications
     @replace_if_present_flag = options[:replace_if_present_flag]?options[:replace_if_present_flag]:0
-    @data_coding             = options[:data_coding]?options[:data_coding]:3 # iso-8859-1
+    @data_coding             = options[:data_coding]?options[:data_coding]:3 #latin-1
     @sm_default_msg_id       = options[:sm_default_msg_id]?options[:sm_default_msg_id]:0
     @short_message           = short_message
     payload                  = @udh ? @udh + @short_message : @short_message 
     @sm_length               = payload.length
-    
+
     @optional_parameters     = options[:optional_parameters]
-    
+
     # craft the string/byte buffer
     pdu_body = sprintf("%s\0%c%c%s\0%c%c%s\0%c%c%c%s\0%s\0%c%c%c%c%c%s", @service_type, @source_addr_ton, @source_addr_npi, @source_addr,
     @dest_addr_ton, @dest_addr_npi, @destination_addr, @esm_class, @protocol_id, @priority_flag, @schedule_delivery_time, @validity_period,
@@ -46,7 +58,7 @@ class Smpp::Pdu::SubmitSm < Smpp::Pdu::Base
 
     seq ||= next_sequence_number
 
-    super(SUBMIT_SM, 0, seq, pdu_body)        
+    super(SUBMIT_SM, 0, seq, pdu_body)
   end
   
   # some special formatting is needed for SubmitSm PDUs to show the actual message content
@@ -82,8 +94,6 @@ class Smpp::Pdu::SubmitSm < Smpp::Pdu::Base
 
     #everything left in remaining_bytes is 3.4 optional parameters
     options[:optional_parameters] = optional_parameters(remaining_bytes)
-
-    Smpp::Base.logger.debug "SubmitSM with source_addr=#{source_addr}, destination_addr=#{destination_addr}"
 
     new(source_addr, destination_addr, short_message, options, seq) 
   end

@@ -49,14 +49,12 @@ class Smpp::Transceiver < Smpp::Base
 
   # Send a concatenated message with a body of > 160 characters as multiple messages.
   def send_concat_mt(message_id, source_addr, destination_addr, message, options = {})
-    logger.debug "Sending concatenated MT: #{message}"
+
     if @state == :bound
       # Split the message into parts of 153 characters. (160 - 7 characters for UDH)
-      parts = []
-      while message.size > 0 do
-        parts << message.slice!(0..152)
-      end
-      
+
+      parts = slice_message(message)
+
       0.upto(parts.size-1) do |i|
         udh = sprintf("%c", 5)            # UDH is 5 bytes.
         udh << sprintf("%c%c", 0, 3)      # This is a concatenated message 
@@ -64,14 +62,16 @@ class Smpp::Transceiver < Smpp::Base
         udh << sprintf("%c", parts.size)  # How many parts this message consists of
         udh << sprintf("%c", i+1)         # This is part i+1
         
-        options = {
+        options = options.merge({
           :esm_class => 64,               # This message contains a UDH header.
           :udh => udh 
-        }
+        })
         
         pdu = Pdu::SubmitSm.new(source_addr, destination_addr, parts[i], options)
         write_pdu pdu
-        
+
+        logger.debug "Sending concatenated MT part #{i+1}: #{parts[i]}"
+
         # This is definately a bit hacky - multiple PDUs are being associated with a single
         # message_id.
         @ack_ids[pdu.sequence_number] = message_id

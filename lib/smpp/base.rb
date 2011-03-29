@@ -52,6 +52,11 @@ module Smpp
       logger.error "Error starting RX: #{ex.message} at #{ex.backtrace[0]}"
     end
 
+    def slice_message(message)
+      single_length, part_length = message.non_ascii? ? [70, 67] : [160, 153]
+      message.size_u <= single_length ? [message] : message.split_u(part_length)
+    end
+
     # sets up a periodic timer that will periodically enquire as to the
     # state of the connection
     # Note: to add in custom executable code (that only runs on an open

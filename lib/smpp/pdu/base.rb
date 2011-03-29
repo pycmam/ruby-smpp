@@ -86,8 +86,9 @@ module Smpp::Pdu
       @command_status = command_status
       @body = body
       @sequence_number = seq
-      @data = fixed_int(length) + fixed_int(command_id) + fixed_int(command_status) + fixed_int(seq) + body   
-    end      
+      @data = fixed_int(length) + fixed_int(command_id) + fixed_int(command_status) + fixed_int(seq) + body
+
+    end
 
     def logger
       Smpp::Base.logger

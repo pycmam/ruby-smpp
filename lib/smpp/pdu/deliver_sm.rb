@@ -4,7 +4,7 @@ class Smpp::Pdu::DeliverSm < Smpp::Pdu::Base
   attr_reader :service_type, :source_addr_ton, :source_addr_npi, :source_addr, :dest_addr_ton, :dest_addr_npi, 
               :destination_addr, :esm_class, :protocol_id, :priority_flag, :schedule_delivery_time, 
               :validity_period, :registered_delivery, :replace_if_present_flag, :data_coding, 
-              :sm_default_msg_id, :sm_length, :stat, :msg_reference, :udh, :short_message,
+              :sm_default_msg_id, :sm_length, :stat, :err, :msg_reference, :udh, :short_message,
               :message_state, :receipted_message_id, :optional_parameters
 
   def initialize(source_addr, destination_addr, short_message, options={}, seq=nil) 
@@ -32,6 +32,7 @@ class Smpp::Pdu::DeliverSm < Smpp::Pdu::Base
 
     #fields set for delivery report
     @stat                    = options[:stat]
+    @err                     = options[:err]
     @msg_reference           = options[:msg_reference]
     @receipted_message_id    = options[:receipted_message_id]
     @message_state           = options[:message_state]
@@ -99,13 +100,18 @@ class Smpp::Pdu::DeliverSm < Smpp::Pdu::Base
       if msg_ref_match
         options[:msg_reference] = msg_ref_match[1]
       end
-      
+
       stat_match = short_message.match(/stat:([^ ]*)/)
       if stat_match
         options[:stat] = stat_match[1]
       end
-      
-      Smpp::Base.logger.debug "DeliverSM with source_addr=#{source_addr}, destination_addr=#{destination_addr}, msg_reference=#{options[:msg_reference]}, stat=#{options[:stat]}"
+
+      err_match = short_message.match(/err:([^ ]*)/)
+      if err_match
+        options[:err] = err_match[1]
+      end
+
+      Smpp::Base.logger.debug "DeliverSM with source_addr=#{source_addr}, destination_addr=#{destination_addr}, msg_reference=#{options[:msg_reference]}, stat=#{options[:stat]}, err=#{options[:err]}"
     else
       Smpp::Base.logger.debug "DeliverSM with source_addr=#{source_addr}, destination_addr=#{destination_addr}"
     end    
